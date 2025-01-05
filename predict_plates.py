@@ -9,7 +9,7 @@ model = YOLO("model/plates_detection.pt").to(device)
 
 def predict_plate(img):
     print("Predicting...")
-    results = model(img)
+    results = model(img, verbose=False)
     print("Done")
     return results
 
