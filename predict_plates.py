@@ -3,11 +3,9 @@ import torch.cuda
 from ultralytics import YOLO
 from preprocess import preprocess_image
 
-device = 'cuda' if torch.cuda.is_available() else "cpu"
-model = YOLO("model/plates_detection.pt").to(device)
 
 
-def predict_plate(img):
+def predict_plate(model,img):
     print("Predicting...")
     results = model(img, verbose=False)
     print("Done")
@@ -34,10 +32,10 @@ def process_plate(plates):
         plates[i]= preprocess_image(plates[i])
     return plates
 
-def main_image(image_path):
+def main_image(model,image_path):
     if isinstance(image_path, str):
         image_path = cv2.imread(image_path)
-    results_plate = predict_plate(image_path)
+    results_plate = predict_plate(model,image_path)
     plates = cut_plates(results_plate, image_path)
     plates = process_plate(plates)
     return plates

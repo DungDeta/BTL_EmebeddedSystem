@@ -1,11 +1,17 @@
+import asyncio
+import time
+import torch
+from ultralytics import YOLO
 from GPIOEmulator.EmulatorGUI import GPIO
-import picamera as picam # Thư viện giả lập camera
+import picamera as picam
 import predict_plates
 import read_plates
-import mfrc522 # Thư viện giả lập RFID
-import time
+import mfrc522
 
-# Set up the GPIO
+device = 'cuda' if torch.cuda.is_available() else "cpu"
+model_plates = YOLO("model/plates_detection.pt").to(device)
+model_letter = YOLO('model/letter_detection.pt').to(device)
+
 OPEN_BUTTON = 14
 CLOSE_BUTTON = 15
 SENSOR_IN = 23
@@ -13,8 +19,9 @@ SENSOR_OUT = 24
 MOTOR = 25
 camera_in = picam.PiRGBArray(picam.PiCamera())
 camera_out = picam.PiRGBArray(picam.PiCamera())
-RFID_in=mfrc522.SimpleMFRC522()
-RFID_out=mfrc522.SimpleMFRC522()
+RFID_in = mfrc522.SimpleMFRC522()
+RFID_out = mfrc522.SimpleMFRC522()
+
 def setup_GPIO():
     GPIO.setmode(GPIO.BCM)
     GPIO.setup(OPEN_BUTTON, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
@@ -23,48 +30,46 @@ def setup_GPIO():
     GPIO.setup(SENSOR_OUT, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
     GPIO.setup(MOTOR, GPIO.OUT)
 
-def loop():
-    """
-    Hàm lặp vô hạn để kiểm tra các cảm biến cùng với việc handle các nút nhấn mở cửa
-    Nếu có xe vào thì chụp ảnh và dự đoán biển số sau đó kiểm tra RFID
-    :return:
-    """
-    while True:
-        if GPIO.input(OPEN_BUTTON):
-            print("Nhấn nút mở cổng")
-            GPIO.output(MOTOR, GPIO.HIGH)
-        if GPIO.input(CLOSE_BUTTON):
-            print("Nhấn nút đóng cổng")
-            GPIO.output(MOTOR, GPIO.LOW)
-        if GPIO.input(SENSOR_IN):
-            print("Phát hiện xe vào")
-            img= camera_in.array(input="test_data/input_img.jpg")
-            plates=predict_plates.main_image(img)
-            bienxo=read_plates.main_read(plates[0])
-            check_rfid(RFID_in, bienxo)
-        if GPIO.input(SENSOR_OUT):
-            print("Phát hiện xe ra")
-            img= camera_in.array(input="test_data/input_img.jpg")
-            plates=predict_plates.main_image(img)
-            bienxo=read_plates.main_read(plates[0])
-            check_rfid(RFID_out, bienxo)
-def check_rfid(RFID,expected_rfid, timeout=10):
-    """
-    Hàm kiểm tra RFID
-    :param RFID: Đối tượng RFID để đọc
-    :param expected_rfid: RFID cần so sánh
-    :param timeout:  Thời gian chờ
-    :return:
-    """
+async def read_rfid(RFID, timeout=10):
     start_time = time.time()
     while time.time() - start_time < timeout:
-        rfid = RFID.read()
-        if rfid == expected_rfid:
-            print("Đọc thẻ thành công")
-            return True
-        print("Đọc thẻ thất bại")
-        time.sleep(1)  # Tránh lặp quá nhanh
-    print("Hết thời gian chờ RFID")
+        rfid = RFID.read("RFID0001")
+        if rfid != '':
+            print(f"RFID read successfully: {rfid}")
+            return rfid
+        await asyncio.sleep(1)  # Avoid busy-waiting
+    print("RFID read timeout")
     return False
+
+async def process_vehicle(sensor, camera, model_plates, model_letter):
+    print(f"Vehicle detected at {sensor}")
+    # Giả lập đọc ảnh từ camera (bất đồng bộ)
+    await asyncio.sleep(0.1)  # Thay thế bằng thao tác bất đồng bộ thực tế nếu có
+
+    # Giả lập nhận dạng biển số
+    img = camera.array(input="test_data/input_img.jpg")
+    plates = await asyncio.to_thread(predict_plates.main_image, model_plates, img)  # Chạy YOLO trong thread
+    bienxo = await asyncio.to_thread(read_plates.main_read, model_letter, plates[0])  # Chạy đọc biển số trong thread
+    return bienxo
+async def loop():
+    while True:
+        if GPIO.input(OPEN_BUTTON):
+            print("Opening gate")
+            GPIO.output(MOTOR, GPIO.HIGH)
+
+        if GPIO.input(CLOSE_BUTTON):
+            print("Closing gate")
+            GPIO.output(MOTOR, GPIO.LOW)
+
+        if GPIO.input(SENSOR_IN):
+            # Gọi bất đồng bộ từng hàm
+            rfid = await read_rfid(RFID_in)
+            bienxo = await process_vehicle("SENSOR_IN", camera_in, model_plates, model_letter)
+            print(f"RFID: {rfid}, Biển số: {bienxo}")
+        if GPIO.input(SENSOR_OUT):
+            rfid = await read_rfid(RFID_out)
+            bienxo = await process_vehicle("SENSOR_OUT", camera_out, model_plates, model_letter)
+            print(f"RFID: {rfid}, Biển số: {bienxo}")
+        await asyncio.sleep(0.1)
 setup_GPIO()
-loop()
+asyncio.run(loop())

@@ -1,8 +1,6 @@
 import cv2
 import torch
 from ultralytics import YOLO
-device= 'cuda' if torch.cuda.is_available() else 'cpu'
-model_letter = YOLO('model/letter_detection.pt').to(device)
 def get_number_from_plates(results_letter):
     letter = []
     for result in results_letter:
@@ -41,11 +39,9 @@ def read_number(result):
     else:
         bienso= bienso[:3]+ "-"+ bienso[3:]
     return bienso
-def main_read(image_path):
+def main_read(model_letter,image_path):
     if isinstance(image_path, str):
         image_path = cv2.imread(image_path)
     results_letter = model_letter(image_path,verbose=False)
     bienso= read_number(results_letter)
     return bienso
-if __name__ == "__main__":
-    print(main_read("test_data/plates.jpg"))
