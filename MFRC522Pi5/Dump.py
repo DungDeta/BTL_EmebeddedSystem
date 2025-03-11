@@ -21,16 +21,19 @@
 #    along with MFRC522-Python.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-import MFRC522
 import signal
+
+import MFRC522
 
 continue_reading = True
 
+
 # Capture SIGINT for cleanup when the script is aborted
-def end_read(signal,frame):
+def end_read(signal, frame):
     global continue_reading
-    print ("Ctrl+C captured, ending read.")
+    print("Ctrl+C captured, ending read.")
     continue_reading = False
+
 
 # Hook the SIGINT
 signal.signal(signal.SIGINT, end_read)
@@ -42,24 +45,23 @@ MIFAREReader = MFRC522.MFRC522()
 while continue_reading:
 
     # Scan for cards
-    (status,TagType) = MIFAREReader.MFRC522_Request(MIFAREReader.PICC_REQIDL)
+    (status, TagType) = MIFAREReader.MFRC522_Request(MIFAREReader.PICC_REQIDL)
 
     # If a card is found
     if status == MIFAREReader.MI_OK:
         print("Card detected")
 
     # Get the UID of the card
-    (status,uid) = MIFAREReader.MFRC522_Anticoll()
+    (status, uid) = MIFAREReader.MFRC522_Anticoll()
 
     # If we have the UID, continue
     if status == MIFAREReader.MI_OK:
-
         # Print UID
-        print( "Card read UID: %s,%s,%s,%s" % (uid[0], uid[1], uid[2], uid[3]))
-    
+        print("Card read UID: %s,%s,%s,%s" % (uid[0], uid[1], uid[2], uid[3]))
+
         # This is the default key for authentication
-        key = [0xFF,0xFF,0xFF,0xFF,0xFF,0xFF]
-        
+        key = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
+
         # Select the scanned tag
         MIFAREReader.MFRC522_SelectTag(uid)
 

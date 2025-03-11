@@ -1,16 +1,18 @@
+import time
+
 import cv2
 import torch
-import time
 from ultralytics import YOLO
+
 import predict_plates
 import read_plates
 
 device = 'cuda' if torch.cuda.is_available() else "cpu"
-model_plates = YOLO("model/plates_detection.pt").to(device)
-model_letter = YOLO('model/letter_detection.pt').to(device)
+model_plates = YOLO("../model/plates_detection.pt").to(device)
+model_letter = YOLO('../model/letter_detection.pt').to(device)
 
 # Sample image path
-sample_image_path = "test_data/input_img.jpg"
+sample_image_path = "../test_data/input_img.jpg"
 
 
 def test_models():
@@ -29,7 +31,7 @@ def test_models():
         return
 
     # Read plate numbers
-    bienxo= read_plates.main_read(model_letter, plates[0])
+    bienxo = read_plates.main_read(model_letter, plates[0])
     print("Detected plate number:", bienxo)
 
     end_time = time.time()

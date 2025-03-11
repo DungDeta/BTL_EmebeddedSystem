@@ -1,5 +1,7 @@
-import lgpio
 import time
+
+import lgpio
+
 RELAY_PIN = 17
 h = lgpio.gpiochip_open(0)
 
@@ -11,12 +13,12 @@ try:
         # BẬT relay
         lgpio.gpio_write(h, RELAY_PIN, 1)
         print("Relay is ON")
-        time.sleep(2)
+        time.sleep(1)
 
         # TẮT relay
         lgpio.gpio_write(h, RELAY_PIN, 0)
         print("Relay is OFF")
-        time.sleep(2)
+        time.sleep(1)
 
 except KeyboardInterrupt:
     print("Stopping program...")

@@ -26,9 +26,10 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 #
 
-from MFRC522 import MFRC522
 import signal
 import time
+
+from MFRC522 import MFRC522
 
 continue_reading = True
 
@@ -48,6 +49,7 @@ def end_read(signal, frame):
     print("Ctrl+C captured, ending read.")
     continue_reading = False
 
+
 # Hook the SIGINT
 signal.signal(signal.SIGINT, end_read)
 
@@ -55,39 +57,37 @@ signal.signal(signal.SIGINT, end_read)
 # create a class contaings the RFID and only report when something is new
 
 class myRFIDReader(MFRC522):
-    def __init__(self,bus=0,dev=0):
-        super().__init__(bus=bus,dev=dev)
+    def __init__(self, bus=0, dev=0):
+        super().__init__(bus=bus, dev=dev)
         self.key = None
         self.keyIn = False
-        self.keyValidCount=0;
+        self.keyValidCount = 0;
 
     def Read(self):
         status, TagType = self.MFRC522_Request(super().PICC_REQIDL)
         if status == self.MI_OK:
             status, uid = self.MFRC522_SelectTagSN()
             if status == self.MI_OK:
-                self.keyIn=True
-                self.keyValidCount=2
+                self.keyIn = True
+                self.keyValidCount = 2
                 if self.key != uid:
-                   self.key = uid
-                   if uid is None:
-                      return False
-                   return True
+                    self.key = uid
+                    if uid is None:
+                        return False
+                    return True
         else:
             if self.keyIn:
-                if self.keyValidCount>0:
-                   self.keyValidCount= self.keyValidCount - 1
+                if self.keyValidCount > 0:
+                    self.keyValidCount = self.keyValidCount - 1
                 else:
-                   self.keyIn=False
-                   self.key=None
+                    self.keyIn = False
+                    self.key = None
         return False
 
 
-
-reader1 = myRFIDReader(bus=0,dev=0)
-reader2 = myRFIDReader(bus=0,dev=1)
-reader3 = myRFIDReader(bus=1,dev=0)
-
+reader1 = myRFIDReader(bus=0, dev=0)
+reader2 = myRFIDReader(bus=0, dev=1)
+reader3 = myRFIDReader(bus=1, dev=0)
 
 # Welcome message
 print("Welcome to the MFRC522 data read example")
@@ -98,11 +98,10 @@ print("Press Ctrl-C to stop.")
 while continue_reading:
 
     if reader1.Read():
-       print("Reader1 : %s" %uidToString(reader1.key))
+        print("Reader1 : %s" % uidToString(reader1.key))
     if reader2.Read():
-       print("Reader2 : %s" %uidToString(reader2.key))
+        print("Reader2 : %s" % uidToString(reader2.key))
     if reader3.Read():
-       print("Reader3 : %s" %uidToString(reader3.key))
+        print("Reader3 : %s" % uidToString(reader3.key))
 
     time.sleep(0.010)
-

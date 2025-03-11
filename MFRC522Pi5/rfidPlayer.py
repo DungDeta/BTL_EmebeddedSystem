@@ -29,11 +29,12 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 #
 
-from MFRC522 import MFRC522
 import signal
-import time
-import os
 import subprocess
+import time
+
+from MFRC522 import MFRC522
+
 continue_reading = True
 
 
@@ -52,6 +53,7 @@ def end_read(signal, frame):
     print("Ctrl+C captured, ending read.")
     continue_reading = False
 
+
 # Hook the SIGINT
 signal.signal(signal.SIGINT, end_read)
 
@@ -59,80 +61,81 @@ signal.signal(signal.SIGINT, end_read)
 # create a class contaings the RFID and only report when something is new
 
 class myRFIDReader(MFRC522):
-    def __init__(self,bus=0,dev=0):
-        super().__init__(bus=bus,dev=dev)
+    def __init__(self, bus=0, dev=0):
+        super().__init__(bus=bus, dev=dev)
         self.key = None
         self.keyIn = False
-        self.keyValidCount=0;
+        self.keyValidCount = 0;
 
     def Read(self):
         status, TagType = self.MFRC522_Request(super().PICC_REQIDL)
         if status == self.MI_OK:
             status, uid = self.MFRC522_SelectTagSN()
             if status == self.MI_OK:
-                self.keyIn=True
-                self.keyValidCount=2
+                self.keyIn = True
+                self.keyValidCount = 2
                 if self.key != uid:
-                   self.key = uid
-                   if uid is None:
-                      return False
-                   return True
+                    self.key = uid
+                    if uid is None:
+                        return False
+                    return True
         else:
             if self.keyIn:
-                if self.keyValidCount>0:
-                   self.keyValidCount= self.keyValidCount - 1
+                if self.keyValidCount > 0:
+                    self.keyValidCount = self.keyValidCount - 1
                 else:
-                   self.keyIn=False
-                   self.key=None
+                    self.keyIn = False
+                    self.key = None
         return False
+
 
 ######## video dictionary
 
-videoDict = {"065B51D5":"Barcelona.mp4",
-             "0658D555":"ParisHQ.mp4",
-             "0658D9A5":"Roma.mp4",
-             "804FA6AA187204":"stop"}
+videoDict = {"065B51D5": "Barcelona.mp4",
+             "0658D555": "ParisHQ.mp4",
+             "0658D9A5": "Roma.mp4",
+             "804FA6AA187204": "stop"}
 
 #########   play video function
 my_subprocess = None
+
+
 def stopCurrentVideo():
-       global my_subprocess
-       try:
-         my_subprocess.terminate()
-       except Exception as err:
-         pass
-       time.sleep(0.5)
+    global my_subprocess
+    try:
+        my_subprocess.terminate()
+    except Exception as err:
+        pass
+    time.sleep(0.5)
+
 
 def playVideo(videofile):
-       global my_subprocess
-       stopCurrentVideo()
-       if videofile == "stop":
-           return
-       cmd = ("/bin/ffplay","-fs","-autoexit","/home/daniel/Videos/%s" % videofile)
-       my_subprocess=subprocess.Popen(cmd,stdin=subprocess.PIPE,
-                                 stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE)
+    global my_subprocess
+    stopCurrentVideo()
+    if videofile == "stop":
+        return
+    cmd = ("/bin/ffplay", "-fs", "-autoexit", "/home/daniel/Videos/%s" % videofile)
+    my_subprocess = subprocess.Popen(cmd, stdin=subprocess.PIPE,
+                                     stdout=subprocess.PIPE,
+                                     stderr=subprocess.PIPE)
 
 
-def    checkCard(rfid_key):
-    print("RFID key: %s" % rfid_key,end="")
+def checkCard(rfid_key):
+    print("RFID key: %s" % rfid_key, end="")
     if rfid_key in videoDict:
-       if  videoDict[rfid_key]=="quit":
-          stopCurrentVideo()
-          quit()
-       else:
-          playVideo(videoDict[rfid_key])
-          print("   play video %s" % videoDict[rfid_key])
+        if videoDict[rfid_key] == "quit":
+            stopCurrentVideo()
+            quit()
+        else:
+            playVideo(videoDict[rfid_key])
+            print("   play video %s" % videoDict[rfid_key])
     else:
         print("---- not found")
 
 
-
-
-
-reader1 = myRFIDReader(bus=0,dev=0)
-#reader2 = myRFIDReader(bus=0,dev=1)
-#reader3 = myRFIDReader(bus=1,dev=0)
+reader1 = myRFIDReader(bus=0, dev=0)
+# reader2 = myRFIDReader(bus=0,dev=1)
+# reader3 = myRFIDReader(bus=1,dev=0)
 
 
 # Welcome message
@@ -144,12 +147,11 @@ print("Press Ctrl-C to stop.")
 while continue_reading:
 
     if reader1.Read():
-       print("Reader1 : %s" %uidToString(reader1.key))
-       checkCard(uidToString(reader1.key))
-#    if reader2.Read():
-#       print("Reader2 : %s" %uidToString(reader2.key))
-#    if reader3.Read():
-#       print("Reader3 : %s" %uidToString(reader3.key))
+        print("Reader1 : %s" % uidToString(reader1.key))
+        checkCard(uidToString(reader1.key))
+    #    if reader2.Read():
+    #       print("Reader2 : %s" %uidToString(reader2.key))
+    #    if reader3.Read():
+    #       print("Reader3 : %s" %uidToString(reader3.key))
 
     time.sleep(0.010)
-

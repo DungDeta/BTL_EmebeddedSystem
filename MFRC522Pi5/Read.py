@@ -26,8 +26,9 @@
 #    If not, see <http://www.gnu.org/licenses/>.
 #
 
-import MFRC522
 import signal
+
+import MFRC522
 
 continue_reading = True
 
@@ -46,6 +47,7 @@ def end_read(signal, frame):
     global continue_reading
     print("Ctrl+C captured, ending read.")
     continue_reading = False
+
 
 # Hook the SIGINT
 signal.signal(signal.SIGINT, end_read)
@@ -66,7 +68,7 @@ while continue_reading:
 
     # If a card is found
     if status == MIFAREReader.MI_OK:
-        print ("Card detected")
+        print("Card detected")
 
         # Get the UID of the card
         (status, uid) = MIFAREReader.MFRC522_SelectTagSN()
@@ -75,4 +77,3 @@ while continue_reading:
             print("Card read UID: %s" % uidToString(uid))
         else:
             print("Authentication error")
-
