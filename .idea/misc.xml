@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="AI_ML" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Remote Python 3.11.2 (sftp://pi@192.168.137.197:22/home/pi/.virtualenvs/BTL_EmbeddedSystem/bin/python)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Remote Python 3.11.2 (sftp://pi@pi.local:22/home/pi/.virtualenvs/BTL_EmbeddedSystem/bin/python)" project-jdk-type="Python SDK" />
 </project>

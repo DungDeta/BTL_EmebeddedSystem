@@ -2,11 +2,11 @@ import asyncio
 import time
 import torch
 from ultralytics import YOLO
-import RPi.GPIO as GPIO
+import lgpio as GPIO
 import cv2
 import predict_plates
 import read_plates
-import mfrc522
+import mfrc522_test
 import api_call
 
 device = 'cuda' if torch.cuda.is_available() else "cpu"
@@ -24,17 +24,17 @@ camera_in = cv2.VideoCapture(0)
 camera_out = cv2.VideoCapture(1)
 test = True
 
-RFID_in = mfrc522.SimpleMFRC522()
-RFID_out = mfrc522.SimpleMFRC522()
+RFID_in = mfrc522_test.SimpleMFRC522()
+RFID_out = mfrc522_test.SimpleMFRC522()
 
 def setup_GPIO():
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setup(OPEN_BUTTON, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-    GPIO.setup(CLOSE_BUTTON, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-    GPIO.setup(SENSOR_IN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-    GPIO.setup(SENSOR_OUT, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-    GPIO.setup(MOTOR, GPIO.OUT)
-    GPIO.setwarnings(False)
+    h = GPIO.gpiochip_open(0)
+    GPIO.gpio_claim_input(h, OPEN_BUTTON)
+    GPIO.gpio_claim_input(h, CLOSE_BUTTON)
+    GPIO.gpio_claim_input(h, SENSOR_IN)
+    GPIO.gpio_claim_input(h, SENSOR_OUT)
+    GPIO.gpio_claim_output(h, MOTOR)
+    return h
 
 async def read_rfid(RFID, timeout=10):
     start_time = time.time()
@@ -58,51 +58,49 @@ async def process_vehicle(sensor, camera, model_plates, model_letter):
         return None
 
     bienxo = await asyncio.to_thread(read_plates.main_read, model_letter, plates[0])
-    return bienxo, frame
+    return bienxo
 
-async def check_ownership_and_log(vehicle_plate, user_rf_id, frame,time_in, time_out):
-    user= api_call.get_user_info(user_rf_id)
-    vehicle= api_call.get_vehicle_info(vehicle_plate)
-    if vehicle["owner_id"] != user["id"]:
-        print("Unauthorized vehicle")
-        return
-    else:
-        print("Authorized vehicle")
-        img_path= f"test_data/{vehicle_plate}.jpg"
-        cv2.imwrite(img_path, frame)
-        api_call.post_parking_history(vehicle_plate, user_rf_id, img_path,time_in, time_out)
+async def handle_exit(h):
+    print("Xe ra đang xử lý...")
+    rfid = await read_rfid(RFID_out)
+    plate = await process_vehicle("SENSOR_OUT", camera_out, model_plates, model_letter)
+    print("Đã đọc biển số:", plate)
+    if plate:
+        history = api_call.get_parking_history(plate, rfid)
+        if any(record['time_out'] is None for record in history):
+            api_call.post_parking_history(plate, rfid, "OUT")
+            print(f"CẬP NHẬT LOG: Biển {plate}")
+            GPIO.gpio_write(h, MOTOR, 1)
+            await asyncio.sleep(3)
+            GPIO.gpio_write(h, MOTOR, 0)
+        else:
+            print("KHÔNG TÌM THẤY LỊCH SỬ - XE LẠ")
 
-async def loop():
+async def handle_entry(h):
+    print("Xe vào đang xử lý...")
+    rfid = await read_rfid(RFID_in)
+    plate = await process_vehicle("SENSOR_IN", camera_in, model_plates, model_letter)
+    print("Đã đọc biển số:", plate)
+    if plate:
+        api_call.post_parking_history(plate, rfid, "IN")
+        print(f"ĐÃ LƯU LOG: Biển {plate} - RFID: {rfid}")
+        GPIO.gpio_write(h, MOTOR, 1)  # Mở barrier
+        await asyncio.sleep(3)  # Giữ barrier mở
+        GPIO.gpio_write(h, MOTOR, 0)  # Đóng barrier
+
+async def loop(h):
     while True:
-        if GPIO.input(OPEN_BUTTON):
+        if GPIO.gpio_read(h, OPEN_BUTTON):
             print("Opening gate")
-            GPIO.output(MOTOR, GPIO.HIGH)
-
-        if GPIO.input(CLOSE_BUTTON):
+            GPIO.gpio_write(h, MOTOR, 1)
+        if GPIO.gpio_read(h, CLOSE_BUTTON):
             print("Closing gate")
-            GPIO.output(MOTOR, GPIO.LOW)
-
-        if GPIO.input(SENSOR_IN) or test:
-            rfid = await read_rfid(RFID_in)
-            result = await process_vehicle("SENSOR_IN", camera_in, model_plates, model_letter)
-            if result is not None:
-                bienxo, frame = result
-                print(f"RFID: {rfid}, Biển số: {bienxo}")
-                await check_ownership_and_log(bienxo, rfid, frame, time.time(), None)
-            else:
-                print("Failed to process vehicle")
-
-        if GPIO.input(SENSOR_OUT):
-            rfid = await read_rfid(RFID_out)
-            result = await process_vehicle("SENSOR_OUT", camera_out, model_plates, model_letter)
-            if result is not None:
-                bienxo, frame = result
-                print(f"RFID: {rfid}, Biển số: {bienxo}")
-                await check_ownership_and_log(bienxo, rfid, frame, None, time.time())
-            else:
-                print("Failed to process vehicle")
-
+            GPIO.gpio_write(h, MOTOR, 0)
+        if GPIO.gpio_read(h, SENSOR_IN) or test:
+            await handle_entry(h)
+        if GPIO.gpio_read(h, SENSOR_OUT):
+            await handle_exit(h)
         await asyncio.sleep(0.1)
 
-setup_GPIO()
-asyncio.run(loop())
+h = setup_GPIO()
+asyncio.run(loop(h))

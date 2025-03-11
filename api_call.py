@@ -1,29 +1,49 @@
 import requests
+import json
+from datetime import datetime
+import pytz  # Cài đặt bằng: pip install pytz
 
-BASE_URL = "http://127.0.0.1:8000/api"
+def get_current_timestamp():
+    tz = pytz.timezone('Asia/Ho_Chi_Minh')
+    current_time = datetime.now(tz)
+    return current_time.strftime('%B %d, %Y at %I:%M:%S %p UTC%z')
 
-def get_vehicle_info(vehicle_plate):
-    url = f"{BASE_URL}/vehicle/{vehicle_plate}/"
-    response = requests.get(url)
-    return response.json()
+BASE_URL = "https://parking-manager-11a88-default-rtdb.firebaseio.com/parking_history.json"
 
-def get_user_info(user_rf_id):
-    url = f"{BASE_URL}/user/{user_rf_id}/"
-    response = requests.get(url)
-    return response.json()
 
-def post_parking_history(vehicle_plate, user_rf_id, image_path,time_in, time_out):
-    url = f"{BASE_URL}/history/"
+def post_parking_history(vehicle_plate, user_rf_id, status):
+    url = BASE_URL
     data = {
-        "time_in": time_in,
-        "time_out": time_out,
         "vehicle_plate": vehicle_plate,
         "user_rf_id": user_rf_id,
-        "parking_charge": 3000
+        "status": status,
+        "time": get_current_timestamp()
     }
-    files = {
-        "image": open(image_path, "rb")
-    }
-    response = requests.post(url, data=data, files=files)
-    return response.json()
+    headers = {'Content-Type': 'application/json'}
+    response = requests.post(url, headers=headers, data=json.dumps(data))
 
+    # In ra status code và nội dung phản hồi để kiểm tra
+    print(response.status_code)
+    print(response.text)
+
+    try:
+        return response.json()
+    except requests.exceptions.JSONDecodeError:
+        return {"error": "Không thể parse response từ Firebase. Kiểm tra URL hoặc định dạng dữ liệu."}
+
+
+def get_parking_history(vehicle_plate, user_rf_id):
+    url = BASE_URL
+    response = requests.get(url)
+
+    print(response.status_code)
+    print(response.text)
+
+    try:
+        return response.json()
+    except requests.exceptions.JSONDecodeError:
+        return {"error": "Không thể parse response từ Firebase."}
+
+
+# Gọi thử hàm post_parking_history
+print(post_parking_history("11111", "11111", "IN"))
